@@ -20,13 +20,13 @@ body{margin:0}
   --cA:#5cc7b0; --cB:#f0935a; --cC:#7fa8f2; --cF:#ec7bb2; color-scheme:dark}
 
 body{background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
-.wrap{max-width:880px;margin:0 auto;padding-block:40px;
+.wrap{max-width:1000px;margin:0 auto;padding-block:40px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px 48px;align-items:center}
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px 48px;align-items:center}
 h1{grid-column:1/-1;margin:0 0 8px;text-align:center;font-size:1.5rem;font-weight:650;letter-spacing:-.01em}
-@media (max-width:720px){.wrap{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}.calc{justify-self:center}}
 
-.calc{display:grid;grid-template-columns:auto auto 1fr;gap:12px 12px;align-items:center;min-width:0}
+.calc{max-width:540px;display:grid;grid-template-columns:auto auto 1fr;gap:12px 12px;align-items:center;min-width:0}
 .lbl{color:var(--muted);text-align:right;white-space:nowrap}
 .pt{display:flex;gap:6px}
 .res{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -41,7 +41,9 @@ h1{grid-column:1/-1;margin:0 0 8px;text-align:center;font-size:1.5rem;font-weigh
 }
 
 input,select{font:inherit;background:var(--field);color:var(--fg);border:1.5px solid var(--line);border-radius:8px;padding:7px 9px}
-input{width:3.6em;text-align:right;font-variant-numeric:tabular-nums}
+input{width:3em;padding-inline:6px;text-align:right;font-variant-numeric:tabular-nums}
+.dm{display:flex;align-items:center;gap:3px}
+.u{color:var(--muted);font-size:1.1em;margin-right:4px}
 input:focus-visible,select:focus-visible{outline:2px solid currentColor;outline-offset:1px}
 .kA{border-color:var(--cA)} .kB{border-color:var(--cB)} .kC{border-color:var(--cC)}
 
@@ -54,17 +56,17 @@ svg{display:block;width:100%;max-width:380px;height:auto;margin:0 auto}
 
   <div class="calc">
     <span class="lbl">from</span>
-    <span class="pt"><input class="kA" type="text" inputmode="decimal" autocomplete="off" id="aD" value="17" aria-label="First degree"><select class="kA" id="aS" aria-label="First sign"></select></span>
+    <span class="pt"><span class="dm"><input class="kA" type="text" inputmode="numeric" autocomplete="off" id="aD" value="17" aria-label="First point degrees"><span class="u">°</span><input class="kA" type="text" inputmode="numeric" autocomplete="off" id="aM" value="00" placeholder="00" aria-label="First point minutes"><span class="u">′</span></span><select class="kA" id="aS" aria-label="First sign"></select></span>
     <span></span>
 
     <span class="lbl">to</span>
-    <span class="pt"><input class="kB" type="text" inputmode="decimal" autocomplete="off" id="bD" value="29" aria-label="Second degree"><select class="kB" id="bS" aria-label="Second sign"></select></span>
+    <span class="pt"><span class="dm"><input class="kB" type="text" inputmode="numeric" autocomplete="off" id="bD" value="29" aria-label="Second point degrees"><span class="u">°</span><input class="kB" type="text" inputmode="numeric" autocomplete="off" id="bM" value="00" placeholder="00" aria-label="Second point minutes"><span class="u">′</span></span><select class="kB" id="bS" aria-label="Second sign"></select></span>
     <span class="res" id="arc"></span>
 
     <div class="rule"></div>
 
     <span class="lbl"><span id="pD" class="res" style="color:var(--fg)"></span> projected from</span>
-    <span class="pt"><input class="kC" type="text" inputmode="decimal" autocomplete="off" id="cD" value="9" aria-label="Projected-from degree"><select class="kC" id="cS" aria-label="Projected-from sign"></select></span>
+    <span class="pt"><span class="dm"><input class="kC" type="text" inputmode="numeric" autocomplete="off" id="cD" value="9" aria-label="Projected-from degrees"><span class="u">°</span><input class="kC" type="text" inputmode="numeric" autocomplete="off" id="cM" value="00" placeholder="00" aria-label="Projected-from minutes"><span class="u">′</span></span><select class="kC" id="cS" aria-label="Projected-from sign"></select></span>
     <span class="res" id="fwd" style="color:var(--cF)"></span>
 
     <p class="sum" id="sum"></p>
@@ -80,16 +82,12 @@ const $=id=>document.getElementById(id);
 ["aS","bS","cS"].forEach(id=>SIGNS.forEach((n,k)=>$(id).add(new Option(n,k))));
 $("aS").value=8;$("bS").value=3;$("cS").value=0;
 
-// Degree fields use degrees.minutes: 17.30 means 17°30′. Minutes above 59 can't be typed.
-const RX=/^(\d*)(?:\.(\d{0,2}))?$/;
-function parseDM(str){const m=RX.exec(str.trim());if(!m)return null;
-  const mm=m[2]?parseInt(m[2].padEnd(2,"0"),10):0;if(mm>59)return null;
-  return (m[1]?parseInt(m[1],10):0)+mm/60;}
-const toDM=x=>{const t=Math.round(x*60),d=Math.floor(t/60),m=t%60;return m?d+"."+String(m).padStart(2,"0"):String(d);};
+// Each point has a degrees box and a minutes box. Only whole numbers; minutes stop at 59.
+const int=id=>{const v=parseInt($(id).value,10);return isNaN(v)?0:v;};
 
 const norm=x=>((x%360)+360)%360;
-const lon=p=>(+$(p+"S").value)*30+(parseDM($(p+"D").value)??0);
-const mins=m=>m?" "+String(m).padStart(2,"0")+"′":"";
+const lon=p=>(+$(p+"S").value)*30+int(p+"D")+int(p+"M")/60;
+const mins=m=>" "+String(m).padStart(2,"0")+"′";
 const fmtArc=x=>{const t=Math.round(x*60);return Math.floor(t/60)+"°"+mins(t%60);};
 const fmtPos=x=>{const t=Math.round(norm(x)*60)%21600,s=Math.floor(t/1800),r=t-s*1800;return Math.floor(r/60)+"°"+mins(r%60)+" "+SIGNS[s];};
 
@@ -130,16 +128,19 @@ function draw(a,b,c,f){
 }
 
 const last={};
-["aD","bD","cD"].forEach(id=>{
-  const el=$(id);last[id]=el.value;
-  el.addEventListener("input",()=>{
-    const v=parseDM(el.value);
-    if(v===null){el.value=last[id];return;}
-    if(v>=30){ // roll over into the next sign: 39 Sagittarius becomes 9 Capricorn
-      const p=id[0],t=norm((+$(p+"S").value)*30+v),s=Math.floor(t/30);
-      $(p+"S").value=s;el.value=toDM(t-s*30);
-    }
-    last[id]=el.value;update();
+["a","b","c"].forEach(p=>{
+  ["D","M"].forEach(k=>{
+    const id=p+k,el=$(id);last[id]=el.value;
+    el.addEventListener("input",()=>{
+      const ok=/^\d{0,2}$/.test(el.value)&&!(k==="M"&&parseInt(el.value,10)>59);
+      if(!ok){el.value=last[id];return;}
+      if(k==="D"&&parseInt(el.value,10)>=30){ // roll over: 39° Sagittarius becomes 9° Capricorn
+        const v=parseInt(el.value,10);$(p+"S").value=(+$(p+"S").value+Math.floor(v/30))%12;el.value=String(v%30);
+      }
+      last[id]=el.value;update();
+    });
+    el.addEventListener("focus",()=>el.select()); // typing replaces what's there
+    if(k==="M")el.addEventListener("blur",()=>{el.value=String(int(id)).padStart(2,"0");last[id]=el.value;});
   });
 });
 ["aS","bS","cS"].forEach(id=>$(id).addEventListener("input",update));

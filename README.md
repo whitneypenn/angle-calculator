@@ -6,6 +6,6 @@ A small zodiac calculator that measures the distance between two points and proj
 - **Projected from**: that same distance is counted forward from a third position (222° from 9° Aries lands at 21° Scorpio).
 - **Wheel**: shows all four points and both arcs, rotated so the projected-from point sits on the left horizon.
 
-Type degrees as `degrees.minutes`, so `17.30` means 17°30′. Degrees of 30 or more roll over into the next sign.
+Each position has separate degree (°) and minute (′) boxes. Minutes stop at 59, and degrees of 30 or more roll over into the next sign (39° Sagittarius becomes 9° Capricorn).
 
 It's a single `index.html` file with no dependencies. Open it in a browser, or turn on GitHub Pages for the repo to host it.
