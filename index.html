@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Angle Calculator</title>
+<style>
+[hidden]{display:none!important}
+body{margin:0}
+/* Layout: centered title; calculator (label | point | result grid) beside the wheel; stacks on phones */
+:root{
+  --bg:#f6f5f9; --fg:#221e30; --muted:#7d778f; --line:#e1dde9; --field:#ffffff; --band:#efecf4;
+  --cA:#2f7d6d; --cB:#c0531c; --cC:#2b5fb8; --cF:#b02a6b;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14121b; --fg:#ece9f4; --muted:#938da8; --line:#2e2a3c; --field:#1c1a26; --band:#211e2c;
+  --cA:#5cc7b0; --cB:#f0935a; --cC:#7fa8f2; --cF:#ec7bb2; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14121b; --fg:#ece9f4; --muted:#938da8; --line:#2e2a3c; --field:#1c1a26; --band:#211e2c;
+  --cA:#5cc7b0; --cB:#f0935a; --cC:#7fa8f2; --cF:#ec7bb2; color-scheme:dark}
+
+body{background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding-block:40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px 48px;align-items:center}
+h1{grid-column:1/-1;margin:0 0 8px;text-align:center;font-size:1.5rem;font-weight:650;letter-spacing:-.01em}
+@media (max-width:720px){.wrap{grid-template-columns:minmax(0,1fr)}}
+
+.calc{display:grid;grid-template-columns:auto auto 1fr;gap:12px 12px;align-items:center;min-width:0}
+.lbl{color:var(--muted);text-align:right;white-space:nowrap}
+.pt{display:flex;gap:6px}
+.res{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rule{grid-column:1/-1;height:1px;background:var(--line);margin:6px 0}
+.sum{grid-column:1/-1;margin:8px 0 0;color:var(--muted);line-height:1.6}
+.sum b{font-weight:650}
+@media (max-width:520px){
+  .calc{grid-template-columns:minmax(0,1fr);gap:6px}
+  .lbl{text-align:left;margin-top:8px}
+  .calc>span:empty{display:none}
+  .pt select{flex:1;min-width:0}
+}
+
+input,select{font:inherit;background:var(--field);color:var(--fg);border:1.5px solid var(--line);border-radius:8px;padding:7px 9px}
+input{width:3.6em;text-align:right;font-variant-numeric:tabular-nums}
+input:focus-visible,select:focus-visible{outline:2px solid currentColor;outline-offset:1px}
+.kA{border-color:var(--cA)} .kB{border-color:var(--cB)} .kC{border-color:var(--cC)}
+
+svg{display:block;width:100%;max-width:380px;height:auto;margin:0 auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Angle Calculator</h1>
+
+  <div class="calc">
+    <span class="lbl">from</span>
+    <span class="pt"><input class="kA" type="text" inputmode="decimal" autocomplete="off" id="aD" value="17" aria-label="First degree"><select class="kA" id="aS" aria-label="First sign"></select></span>
+    <span></span>
+
+    <span class="lbl">to</span>
+    <span class="pt"><input class="kB" type="text" inputmode="decimal" autocomplete="off" id="bD" value="29" aria-label="Second degree"><select class="kB" id="bS" aria-label="Second sign"></select></span>
+    <span class="res" id="arc"></span>
+
+    <div class="rule"></div>
+
+    <span class="lbl"><span id="pD" class="res" style="color:var(--fg)"></span> projected from</span>
+    <span class="pt"><input class="kC" type="text" inputmode="decimal" autocomplete="off" id="cD" value="9" aria-label="Projected-from degree"><select class="kC" id="cS" aria-label="Projected-from sign"></select></span>
+    <span class="res" id="fwd" style="color:var(--cF)"></span>
+
+    <p class="sum" id="sum"></p>
+  </div>
+
+  <svg id="wheel" viewBox="-150 -150 300 300" role="img" aria-label="Zodiac wheel with the projected-from point on the left horizon"></svg>
+</div>
+
+<script>
+const SIGNS=["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
+const GLYPH=["♈︎","♉︎","♊︎","♋︎","♌︎","♍︎","♎︎","♏︎","♐︎","♑︎","♒︎","♓︎"];
+const $=id=>document.getElementById(id);
+["aS","bS","cS"].forEach(id=>SIGNS.forEach((n,k)=>$(id).add(new Option(n,k))));
+$("aS").value=8;$("bS").value=3;$("cS").value=0;
+
+// Degree fields use degrees.minutes: 17.30 means 17°30′. Minutes above 59 can't be typed.
+const RX=/^(\d*)(?:\.(\d{0,2}))?$/;
+function parseDM(str){const m=RX.exec(str.trim());if(!m)return null;
+  const mm=m[2]?parseInt(m[2].padEnd(2,"0"),10):0;if(mm>59)return null;
+  return (m[1]?parseInt(m[1],10):0)+mm/60;}
+const toDM=x=>{const t=Math.round(x*60),d=Math.floor(t/60),m=t%60;return m?d+"."+String(m).padStart(2,"0"):String(d);};
+
+const norm=x=>((x%360)+360)%360;
+const lon=p=>(+$(p+"S").value)*30+(parseDM($(p+"D").value)??0);
+const mins=m=>m?" "+String(m).padStart(2,"0")+"′":"";
+const fmtArc=x=>{const t=Math.round(x*60);return Math.floor(t/60)+"°"+mins(t%60);};
+const fmtPos=x=>{const t=Math.round(norm(x)*60)%21600,s=Math.floor(t/1800),r=t-s*1800;return Math.floor(r/60)+"°"+mins(r%60)+" "+SIGNS[s];};
+
+function update(){
+  const a=lon("a"),b=lon("b"),c=lon("c");
+  const dist=norm(b-a), f=norm(c+dist);   // always counted forward in zodiacal order
+  $("arc").textContent="= "+fmtArc(dist);
+  $("pD").textContent=fmtArc(dist);
+  $("fwd").textContent="= "+fmtPos(f);
+  const P=(x,v)=>`<b style="color:var(--${v})">${fmtPos(x)}</b>`;
+  $("sum").innerHTML=`From ${P(a,"cA")} to ${P(b,"cB")}, projected from ${P(c,"cC")}, lands at ${P(f,"cF")}.`;
+  draw(a,b,c,f);
+}
+
+function draw(a,b,c,f){
+  const xy=(l,r)=>{const t=(180+l-c)*Math.PI/180;return[r*Math.cos(t),-r*Math.sin(t)];}; // c on the left horizon
+  const band=(l0,l1,r0,r1)=>{const[p,q]=xy(l0,r1),[u,v]=xy(l1,r1),[w,z]=xy(l1,r0),[m,n]=xy(l0,r0);
+    return `M${p} ${q}A${r1} ${r1} 0 0 0 ${u} ${v}L${w} ${z}A${r0} ${r0} 0 0 1 ${m} ${n}Z`;};
+  let s=`<circle r="140" fill="var(--field)"/>`;
+  for(let i=0;i<12;i+=2) s+=`<path d="${band(i*30,i*30+30,105,140)}" fill="var(--band)"/>`;
+  for(let d=0;d<360;d++){const r0=d%10?(d%5?101:98):95,[x1,y1]=xy(d,r0),[x2,y2]=xy(d,105);
+    s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--muted)" stroke-opacity=".45" stroke-width=".6"/>`;}
+  for(let i=0;i<12;i++){const[x1,y1]=xy(i*30,105),[x2,y2]=xy(i*30,140),[gx,gy]=xy(i*30+15,122.5);
+    s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)"/>`+
+       `<text x="${gx}" y="${gy}" text-anchor="middle" dominant-baseline="central" font-size="15" style="fill:var(--fg)">${GLYPH[i]}</text>`;}
+  s+=`<circle r="140" fill="none" stroke="var(--muted)" stroke-opacity=".5"/><circle r="105" fill="none" stroke="var(--muted)" stroke-opacity=".5"/>`;
+  // horizon line
+  {const[x1,y1]=xy(c,105),[x2,y2]=xy(c+180,105);s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--line)"/>`;}
+  // forward arcs, each pair on its own track
+  const sweep=(l0,span,r,col)=>{span=norm(span);if(span<.01)return"";const[x0,y0]=xy(l0,r),[x1,y1]=xy(l0+span,r);
+    return `<path d="M${x0} ${y0}A${r} ${r} 0 ${span>180?1:0} 0 ${x1} ${y1}" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" stroke-opacity=".7"/>`;};
+  s+=sweep(a,b-a,84,"var(--fg)")+sweep(c,f-c,60,"var(--cF)");
+  const pt=(l,col,r)=>{const[x,y]=xy(l,r),[tx,ty]=xy(l,r-13);
+    return `<circle cx="${x}" cy="${y}" r="5" fill="${col}" stroke="var(--field)" stroke-width="1.5"/>`+
+      `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="central" font-size="10" font-weight="700" style="fill:${col}">${Math.floor(norm(l)%30)}°</text>`;};
+  s+=pt(a,"var(--cA)",84)+pt(b,"var(--cB)",84)+pt(c,"var(--cC)",60)+pt(f,"var(--cF)",60);
+  $("wheel").innerHTML=s;
+}
+
+const last={};
+["aD","bD","cD"].forEach(id=>{
+  const el=$(id);last[id]=el.value;
+  el.addEventListener("input",()=>{
+    const v=parseDM(el.value);
+    if(v===null){el.value=last[id];return;}
+    if(v>=30){ // roll over into the next sign: 39 Sagittarius becomes 9 Capricorn
+      const p=id[0],t=norm((+$(p+"S").value)*30+v),s=Math.floor(t/30);
+      $(p+"S").value=s;el.value=toDM(t-s*30);
+    }
+    last[id]=el.value;update();
+  });
+});
+["aS","bS","cS"].forEach(id=>$(id).addEventListener("input",update));
+update();
+</script>
+</body>
+</html>
