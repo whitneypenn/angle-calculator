@@ -20,11 +20,11 @@ body{margin:0}
   --cA:#5cc7b0; --cB:#f0935a; --cC:#7fa8f2; --cF:#ec7bb2; color-scheme:dark}
 
 body{background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
-.wrap{max-width:1000px;margin:0 auto;padding-block:40px;
+.wrap{max-width:1080px;margin:0 auto;padding-block:56px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-  display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px 48px;align-items:center}
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:32px 80px;align-items:center}
 h1{grid-column:1/-1;margin:0 0 8px;text-align:center;font-size:1.5rem;font-weight:650;letter-spacing:-.01em}
-@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}.calc{justify-self:center}}
+@media (max-width:960px){.wrap{grid-template-columns:minmax(0,1fr);gap:48px}.calc{justify-self:center}}
 
 .calc{max-width:540px;display:grid;grid-template-columns:auto auto 1fr;gap:12px 12px;align-items:center;min-width:0}
 .lbl{color:var(--muted);text-align:right;white-space:nowrap}
